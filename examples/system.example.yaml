@@ -56,6 +56,9 @@ agent:
   backup_dir: "/srv/lodestar-backups"
   work_dir: "data/agent"
   # 命令/白名单/备份保留数在 WebUI「部署配置」里按项目设置，不在这里。
+  # 心跳周期（秒）。在线状态由长轮询维持，所以这里可以放得比较长。
+  heartbeat_interval_seconds: 60
+  # 请求失败后的重试退避（秒），不是轮询频率。
   poll_interval_seconds: 5
   allow_server_commands: true
   insecure_skip_verify: false

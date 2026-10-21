@@ -131,8 +131,15 @@ func Run(ctx context.Context, cfg config.AgentConfig) error {
 	}
 }
 
+// heartbeatLoop reports host state on a slow timer. Liveness is proven by the
+// long poll, so this only exists to publish hostname/OS/versions — 15s was pure
+// log noise.
 func (a *Agent) heartbeatLoop(ctx context.Context) {
-	ticker := time.NewTicker(15 * time.Second)
+	interval := a.cfg.HeartbeatInterval
+	if interval <= 0 {
+		interval = time.Minute
+	}
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	a.sendHeartbeat(ctx)
 	for {
@@ -178,9 +185,12 @@ func (a *Agent) sendHeartbeat(ctx context.Context) {
 }
 
 func (a *Agent) nextJob(ctx context.Context) (*jobPayload, error) {
-	wait := a.cfg.PollInterval
-	if wait < 20*time.Second {
-		wait = 20 * time.Second
+	// The wait is the long-poll window, not the retry backoff: hold the
+	// connection open so an idle agent makes ~1 request per minute instead of
+	// reconnecting every few seconds.
+	wait := longPollWait
+	if a.cfg.PollInterval > wait {
+		wait = a.cfg.PollInterval
 	}
 	path := fmt.Sprintf("/api/v1/agent/jobs/next?wait=%s", wait.String())
 	reqCtx, cancel := context.WithTimeout(ctx, wait+30*time.Second)
@@ -229,6 +239,9 @@ func (a *Agent) execute(ctx context.Context, job *jobPayload) {
 	defer func() {
 		stopFlush()
 		sink.flush(context.Background())
+		// Publish the new version immediately: the regular heartbeat is slow
+		// on purpose, and a deploy should not leave the UI stale for a minute.
+		a.sendHeartbeat(context.Background())
 	}()
 
 	targetDir, err := a.resolveDeployDir(job)
@@ -660,3 +673,7 @@ func firstNonEmpty(values ...string) string {
 	}
 	return ""
 }
+
+// longPollWait is how long the agent keeps the job poll open. The server caps
+// it, so this only needs to be long enough to keep an idle fleet quiet.
+const longPollWait = 55 * time.Second

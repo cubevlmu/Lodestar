@@ -135,40 +135,36 @@ type agentJobPayload struct {
 }
 
 // AgentNextJob long-polls for a pending job, claims it atomically, and returns the full spec.
+//
+// The wait is event driven: the handler sleeps on a channel that enqueueJobs
+// closes, with a slow re-check as a safety net for jobs created by another
+// process. It deliberately does not poll the database on a timer — one query
+// per second per idle agent is what made an idle fleet look busy.
 func (a *API) AgentNextJob(c *gin.Context) {
 	target := CurrentTarget(c)
-	wait, _ := time.ParseDuration(c.DefaultQuery("wait", "20s"))
-	if wait <= 0 || wait > 30*time.Second {
-		wait = 20 * time.Second
+	wait, _ := time.ParseDuration(c.DefaultQuery("wait", defaultLongPoll.String()))
+	if wait <= 0 || wait > maxLongPoll {
+		wait = defaultLongPoll
 	}
 	deadline := time.Now().Add(wait)
 
-	a.touchTarget(target, "")
+	// The poll itself proves the host is alive, so a heartbeat is not needed
+	// for that. Only write when the previous record is getting stale.
+	if target.LastSeenAt == nil || time.Since(*target.LastSeenAt) > 20*time.Second {
+		a.touchTarget(target, "")
+	}
+
+	ch := a.jobs.subscribe(target.ID)
+	defer func() { a.jobs.unsubscribe(target.ID, ch) }()
+
+	// Fallback for jobs queued by another process or an older server build.
+	recheck := time.NewTicker(15 * time.Second)
+	defer recheck.Stop()
 
 	for {
-		var job models.DeployJob
-		err := a.DB.Where("target_id = ? AND status = ?", target.ID, "pending").Order("id ASC").First(&job).Error
-		if err == nil {
-			claim := a.DB.Model(&models.DeployJob{}).
-				Where("id = ? AND status = ?", job.ID, "pending").
-				Updates(map[string]any{"status": "running", "started_at": time.Now()})
-			if claim.Error == nil && claim.RowsAffected == 1 {
-				a.DB.Model(&models.Target{}).Where("id = ?", target.ID).Update("status", "deploying")
-				payload, buildErr := a.buildAgentPayload(target, job)
-				if buildErr != nil {
-					now := time.Now()
-					a.DB.Model(&models.DeployJob{}).Where("id = ?", job.ID).Updates(map[string]any{
-						"status": "failed", "error": buildErr.Error(), "finished_at": now,
-					})
-					a.DB.Model(&models.Target{}).Where("id = ?", target.ID).Update("status", "error")
-					c.JSON(http.StatusOK, gin.H{"job": nil, "error": buildErr.Error()})
-					return
-				}
-				c.JSON(http.StatusOK, gin.H{"job": payload})
-				return
-			}
+		if a.claimPendingJob(c, target) {
+			return
 		}
-
 		if time.Now().After(deadline) {
 			c.Status(http.StatusNoContent)
 			return
@@ -176,9 +172,48 @@ func (a *API) AgentNextJob(c *gin.Context) {
 		select {
 		case <-c.Request.Context().Done():
 			return
-		case <-time.After(time.Second):
+		case <-ch:
+			// A job was queued: re-subscribe for the next round, then loop
+			// around and claim it immediately.
+			ch = a.jobs.subscribe(target.ID)
+		case <-recheck.C:
 		}
 	}
+}
+
+const (
+	defaultLongPoll = 55 * time.Second
+	maxLongPoll     = 2 * time.Minute
+)
+
+// claimPendingJob takes the oldest pending job for this host and writes the
+// response. It reports whether a response was written.
+func (a *API) claimPendingJob(c *gin.Context, target *models.Target) bool {
+	var job models.DeployJob
+	err := a.DB.Where("target_id = ? AND status = ?", target.ID, "pending").Order("id ASC").First(&job).Error
+	if err != nil {
+		return false
+	}
+	claim := a.DB.Model(&models.DeployJob{}).
+		Where("id = ? AND status = ?", job.ID, "pending").
+		Updates(map[string]any{"status": "running", "started_at": time.Now()})
+	if claim.Error != nil || claim.RowsAffected != 1 {
+		// Someone else claimed it (another agent process, or a cancel).
+		return false
+	}
+	a.DB.Model(&models.Target{}).Where("id = ?", target.ID).Update("status", "deploying")
+	payload, buildErr := a.buildAgentPayload(target, job)
+	if buildErr != nil {
+		now := time.Now()
+		a.DB.Model(&models.DeployJob{}).Where("id = ?", job.ID).Updates(map[string]any{
+			"status": "failed", "error": buildErr.Error(), "finished_at": now,
+		})
+		a.DB.Model(&models.Target{}).Where("id = ?", target.ID).Update("status", "error")
+		c.JSON(http.StatusOK, gin.H{"job": nil, "error": buildErr.Error()})
+		return true
+	}
+	c.JSON(http.StatusOK, gin.H{"job": payload})
+	return true
 }
 
 func (a *API) buildAgentPayload(target *models.Target, job models.DeployJob) (*agentJobPayload, error) {

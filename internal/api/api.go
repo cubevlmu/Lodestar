@@ -31,10 +31,18 @@ type API struct {
 	Cfg     config.Config
 	Started time.Time
 	limiter *loginLimiter
+	// jobs wakes waiting agents instead of making them poll the database.
+	jobs *jobNotifier
 }
 
 func New(database *gorm.DB, cfg config.Config) *API {
-	return &API{DB: database, Cfg: cfg, Started: time.Now(), limiter: newLoginLimiter()}
+	return &API{
+		DB:      database,
+		Cfg:     cfg,
+		Started: time.Now(),
+		limiter: newLoginLimiter(),
+		jobs:    newJobNotifier(),
+	}
 }
 
 // ---------- response helpers ----------

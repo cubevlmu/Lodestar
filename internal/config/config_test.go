@@ -95,3 +95,19 @@ func TestDefaultsAreUsable(t *testing.T) {
 		t.Fatalf("work dir default: %q", cfg.Agent.WorkDir)
 	}
 }
+
+func TestHeartbeatIntervalDefaultsAndOverride(t *testing.T) {
+	cfg := Load()
+	if cfg.Agent.HeartbeatIntervalSeconds != 60 {
+		t.Fatalf("default heartbeat interval should be 60s, got %d", cfg.Agent.HeartbeatIntervalSeconds)
+	}
+	if cfg.Agent.HeartbeatInterval != time.Minute {
+		t.Fatalf("derived heartbeat duration: %s", cfg.Agent.HeartbeatInterval)
+	}
+
+	t.Setenv("LODESTAR_AGENT_HEARTBEAT_INTERVAL_SECONDS", "120")
+	cfg = Load()
+	if cfg.Agent.HeartbeatInterval != 2*time.Minute {
+		t.Fatalf("env override not applied: %s", cfg.Agent.HeartbeatInterval)
+	}
+}

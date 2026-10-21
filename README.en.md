@@ -107,6 +107,24 @@ agent:
 
 The agent makes outbound requests to the server, so no direct inbound connection to the production host is needed. Run it under an account with appropriate access to deployment and backup directories.
 
+### Agent traffic
+
+An idle agent holds two long-lived requests, and the server does **no**
+timer-driven database polling per waiting agent:
+
+| Request | Rate | Purpose |
+| --- | --- | --- |
+| `GET /api/v1/agent/jobs/next?wait=55s` | ~1/minute | long-poll for a job; the server holds it for 55s before the agent reconnects |
+| `POST /api/v1/agent/heartbeat` | every 60s | hostname, OS and per-app versions; also sent right after a deploy |
+
+Queueing a job wakes a waiting poll immediately (in-process broadcast), so a
+deploy starts within milliseconds instead of waiting for the next tick. Liveness
+comes from the poll itself — `last_seen_at` is refreshed when a poll starts —
+which is why the heartbeat can be slow.
+
+Both are configurable: `heartbeat_interval_seconds` (default 60) and
+`poll_interval_seconds` (retry backoff, default 5).
+
 Alternatively, run the optional Compose agent profile after setting `LODESTAR_AGENT_TARGET_TOKEN`:
 
 ```bash

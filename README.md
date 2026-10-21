@@ -106,6 +106,19 @@ agent:
 
 Agent 默认主动轮询控制面，不要求控制面可以直接连接生产机。Agent 的运行账户必须对部署目录和备份目录拥有必要权限。
 
+### Agent 和控制面之间的流量
+
+Agent 空闲时只有两个常驻请求，**没有**定时轮询数据库那一层：
+
+| 请求 | 频率 | 作用 |
+| --- | --- | --- |
+| `GET /api/v1/agent/jobs/next?wait=55s` | 约 1 次/分钟 | 长轮询取任务；没任务就挂住 55 秒再重连 |
+| `POST /api/v1/agent/heartbeat` | 60 秒一次 | 上报主机名、OS、各应用当前版本；部署结束会立刻补发一次 |
+
+任务入队时服务端会**主动唤醒**挂起的轮询（进程内广播），所以部署延迟在毫秒级，不用等下一个心跳或轮询周期。在线状态由长轮询本身维持（`last_seen_at` 在轮询开始时刷新），心跳只负责状态同步，因此间隔可以放得很长。
+
+两个参数都在 Agent 配置里：`heartbeat_interval_seconds`（默认 60）和 `poll_interval_seconds`（失败重试退避，默认 5）。
+
 也可使用 Compose 的可选 Agent profile，先设置 `LODESTAR_AGENT_TARGET_TOKEN`，再运行：
 
 ```bash

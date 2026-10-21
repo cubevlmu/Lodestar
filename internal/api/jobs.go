@@ -67,6 +67,8 @@ func (a *API) enqueueJobs(project models.Project, release models.Release, plans 
 		if err := a.DB.Create(&job).Error; err != nil {
 			return jobs, err
 		}
+		// Wake the agent instead of waiting for its next poll tick.
+		a.jobs.notify(target.ID)
 		job.Target = target
 		jobs = append(jobs, job)
 	}
@@ -193,6 +195,7 @@ func (a *API) RetryJob(c *gin.Context) {
 		failErr(c, http.StatusInternalServerError, err)
 		return
 	}
+	a.jobs.notify(retry.TargetID)
 	retry.Target = target
 	a.audit(c, "job.retry", fmt.Sprintf("%d -> %d", job.ID, retry.ID))
 	c.JSON(http.StatusOK, gin.H{"job": retry})
@@ -251,6 +254,7 @@ func (a *API) RollbackJob(c *gin.Context) {
 		failErr(c, http.StatusInternalServerError, err)
 		return
 	}
+	a.jobs.notify(rollback.TargetID)
 	rollback.Target = target
 	a.audit(c, "job.rollback", fmt.Sprintf("job %d target %s", job.ID, target.Name))
 	c.JSON(http.StatusOK, gin.H{"job": rollback})

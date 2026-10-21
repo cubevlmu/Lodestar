@@ -35,17 +35,17 @@ agent:
   # 它们属于「主机 × 应用」，在 WebUI 的「部署配置」页面按项目设置。
   # 这样一台 Agent 服务多个项目时，每个项目可以有自己的重启方式和白名单。
 
-  # 允许执行控制面下发的命令。设 false 则任何命令都不执行（只替换文件）。
+  # 是否执行控制面下发的命令（stop/start/restart/health_check）。
+  # true  —— 按「部署配置」里的命令执行。
+  # false —— 任何命令都不执行，只替换文件。多团队共用或半可信环境建议 false。
   allow_server_commands: true
 
+  # 心跳周期（秒）：上报主机名、OS、各应用的当前版本。
+  # 在线状态由长轮询本身维持，所以这里不需要很小；部署结束会立刻补发一次。
+  heartbeat_interval_seconds: 60
 
-  # 长轮询间隔（秒）。服务端无任务时最多挂 20s 再返回。
+  # 请求失败后的重试退避（秒），不是轮询频率。
   poll_interval_seconds: 5
-
-  # 是否接受服务端下发的命令（stop/start/restart/health_check/preserve）。
-  # true  —— 控制面可以按项目覆盖主机命令，灵活但控制面被攻破就能在主机上执行任意命令。
-  # false —— 只用本文件里的命令，推荐给多团队共用或半可信环境。
-  allow_server_commands: false
 
   # 跳过 TLS 校验。只用于自签证书的调试环境。
   insecure_skip_verify: false

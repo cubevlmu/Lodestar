@@ -25,8 +25,12 @@ type AgentConfig struct {
 	WorkDir             string        `yaml:"work_dir"`
 	PollInterval        time.Duration `yaml:"-"`
 	PollIntervalSeconds int           `yaml:"poll_interval_seconds"`
-	AllowServerCommands *bool         `yaml:"allow_server_commands"`
-	InsecureSkipVerify  bool          `yaml:"insecure_skip_verify"`
+	// HeartbeatInterval is how often the agent reports host state (hostname,
+	// versions). Liveness comes from the long poll, so this can be slow.
+	HeartbeatInterval        time.Duration `yaml:"-"`
+	HeartbeatIntervalSeconds int           `yaml:"heartbeat_interval_seconds"`
+	AllowServerCommands      *bool         `yaml:"allow_server_commands"`
+	InsecureSkipVerify       bool          `yaml:"insecure_skip_verify"`
 }
 
 type fileConfig struct {
@@ -98,6 +102,7 @@ func Load() Config {
 	// in a container there is no yaml file to edit, and the restart command is
 	// the whole point of the agent.
 	cfg.Agent.PollIntervalSeconds = getenvInt("LODESTAR_AGENT_POLL_INTERVAL_SECONDS", cfg.Agent.PollIntervalSeconds)
+	cfg.Agent.HeartbeatIntervalSeconds = getenvInt("LODESTAR_AGENT_HEARTBEAT_INTERVAL_SECONDS", cfg.Agent.HeartbeatIntervalSeconds)
 	cfg.Agent.InsecureSkipVerify = getenvBool("LODESTAR_AGENT_INSECURE_SKIP_VERIFY", cfg.Agent.InsecureSkipVerify)
 	if cfg.Agent.AllowServerCommands == nil {
 		if _, ok := os.LookupEnv("LODESTAR_AGENT_ALLOW_SERVER_COMMANDS"); ok {
@@ -110,6 +115,10 @@ func Load() Config {
 		cfg.Agent.PollIntervalSeconds = 5
 	}
 	cfg.Agent.PollInterval = time.Duration(cfg.Agent.PollIntervalSeconds) * time.Second
+	if cfg.Agent.HeartbeatIntervalSeconds <= 0 {
+		cfg.Agent.HeartbeatIntervalSeconds = 60
+	}
+	cfg.Agent.HeartbeatInterval = time.Duration(cfg.Agent.HeartbeatIntervalSeconds) * time.Second
 	if cfg.Agent.WorkDir == "" {
 		cfg.Agent.WorkDir = "data/agent"
 	}
@@ -130,9 +139,10 @@ func loadFileDefaults(path string) fileConfig {
 		MaxUploadMB:         2048,
 		AdminUsername:       "admin",
 		Agent: AgentConfig{
-			ServerURL:           "http://127.0.0.1:8080",
-			Name:                "production",
-			PollIntervalSeconds: 5,
+			ServerURL:                "http://127.0.0.1:8080",
+			Name:                     "production",
+			PollIntervalSeconds:      5,
+			HeartbeatIntervalSeconds: 60,
 		},
 	}
 	data, err := os.ReadFile(path)
