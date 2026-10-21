@@ -20,7 +20,16 @@ func RandomBase64(n int) (string, error) {
 	if _, err := rand.Read(buf); err != nil {
 		return "", err
 	}
-	return base64.StdEncoding.EncodeToString(buf), nil
+	return base64.RawURLEncoding.EncodeToString(buf), nil
+}
+
+// NewToken returns a URL-safe random token, suitable for bearer/agent/deploy credentials.
+func NewToken(n int) string {
+	token, err := RandomBase64(n)
+	if err != nil {
+		panic(fmt.Sprintf("crypto/rand unavailable: %v", err))
+	}
+	return token
 }
 
 func GenerateEd25519KeyPair() (publicKeyBase64 string, privateKeyBase64 string, err error) {
@@ -31,10 +40,10 @@ func GenerateEd25519KeyPair() (publicKeyBase64 string, privateKeyBase64 string, 
 	return base64.StdEncoding.EncodeToString(pub), base64.StdEncoding.EncodeToString(priv), nil
 }
 
+// HMACKey turns a secret string into the HMAC key. The secret is used verbatim as
+// UTF-8 bytes: clients in any language can hash the same bytes without knowing
+// whether the value happens to look like base64.
 func HMACKey(secret string) []byte {
-	if raw, err := base64.StdEncoding.DecodeString(secret); err == nil && len(raw) > 0 {
-		return raw
-	}
 	return []byte(secret)
 }
 
@@ -67,6 +76,12 @@ func SHA256FileHex(r io.Reader) (string, int64, error) {
 	return hex.EncodeToString(h.Sum(nil)), n, nil
 }
 
+// HashToken is used for session tokens so a database leak does not expose live sessions.
+func HashToken(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])
+}
+
 type ManifestPayload struct {
 	AppID            string
 	Version          string
@@ -83,7 +98,7 @@ type ManifestPayload struct {
 
 func CanonicalManifestPayload(m ManifestPayload) string {
 	return fmt.Sprintf(
-		"gx-update-manifest-v1\napp_id=%s\nversion=%s\nversion_code=%d\nplatform=%s\narch=%s\nchannel=%s\npackage_url=%s\npackage_size=%d\npackage_sha256=%s\nforce=%t\nmin_supported_code=%d\n",
+		"lodestar-manifest-v1\napp_id=%s\nversion=%s\nversion_code=%d\nplatform=%s\narch=%s\nchannel=%s\npackage_url=%s\npackage_size=%d\npackage_sha256=%s\nforce=%t\nmin_supported_code=%d\n",
 		m.AppID,
 		m.Version,
 		m.VersionCode,
