@@ -1,0 +1,159 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v0.1.0)'
+        required: true
+        default: 'v0.1.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.os }}-${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - os: linux
+            arch: amd64
+            runner: ubuntu-latest
+            ext: ''
+          - os: linux
+            arch: arm64
+            runner: ubuntu-latest
+            ext: ''
+          - os: windows
+            arch: amd64
+            runner: windows-latest
+            ext: '.exe'
+      fail-fast: false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: webui/package-lock.json
+
+      - name: Build WebUI
+        run: |
+          cd webui
+          npm ci
+          npm run build
+
+      - name: Get version
+        id: version
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "VERSION=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "VERSION=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build binary
+        shell: bash
+        env:
+          GOOS: ${{ matrix.os }}
+          GOARCH: ${{ matrix.arch }}
+          CGO_ENABLED: '0'
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          COMMIT="${GITHUB_SHA::7}"
+          OUTPUT="lodestar-${VERSION}-${GOOS}-${GOARCH}${{ matrix.ext }}"
+          go build -trimpath -ldflags "-s -w -X lodestar/internal/buildinfo.Version=${VERSION} -X lodestar/internal/buildinfo.Commit=${COMMIT}" -o "${OUTPUT}" ./cmd/lodestar
+          echo "Built: ${OUTPUT}"
+          ls -la "${OUTPUT}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lodestar-${{ matrix.os }}-${{ matrix.arch }}
+          path: lodestar-*
+          retention-days: 1
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "VERSION=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "VERSION=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: lodestar-*
+
+      - name: Generate changelog
+        id: changelog
+        shell: bash
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          {
+            echo "## What's Changed"
+            echo ""
+            echo "### Binaries"
+            echo "- \`lodestar-${VERSION}-linux-amd64\` — Linux x86_64"
+            echo "- \`lodestar-${VERSION}-linux-arm64\` — Linux ARM64"
+            echo "- \`lodestar-${VERSION}-windows-amd64.exe\` — Windows x86_64"
+            echo ""
+            echo "### Quick Start"
+            echo '```bash'
+            echo "# Linux"
+            echo "chmod +x lodestar-${VERSION}-linux-amd64"
+            echo "./lodestar-${VERSION}-linux-amd64 serve"
+            echo ""
+            echo "# Windows"
+            echo ".\\lodestar-${VERSION}-windows-amd64.exe serve"
+            echo '```'
+            echo ""
+            echo "### Docker"
+            echo "\`\`\`bash"
+            echo "docker pull ghcr.io/${{ github.repository }}:${VERSION}"
+            echo "\`\`\`"
+          } > changelog.md
+          cat changelog.md
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.VERSION }}
+          name: ${{ steps.version.outputs.VERSION }}
+          body_path: changelog.md
+          files: artifacts/*/*
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.VERSION, '-') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

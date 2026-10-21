@@ -1,0 +1,49 @@
+# syntax=docker/dockerfile:1
+#
+# Lodestar Agent —— 生产机侧的执行器，和本体（serve）是两个独立镜像。
+#
+# 它不提供 WebUI，所以这里不装 Node、不构建前端，镜像比本体小得多；
+# 构建时只补一个空的 dist 目录，让 //go:embed all:dist 能通过编译。
+#
+# 用法：把"应用根目录"挂到 /srv，Agent 会把每个项目装到 /srv/<app_id>
+# （具体路径在 WebUI 部署时指定）。
+
+# ---------- binary ----------
+FROM golang:1.24-alpine AS builder
+ARG VERSION=dev
+ARG COMMIT=docker
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+# Agent 不服务前端；embed 需要一个存在的目录，放个占位文件即可。
+RUN mkdir -p internal/web/dist && : > internal/web/dist/.placeholder
+RUN CGO_ENABLED=0 go build -trimpath \
+      -ldflags "-s -w -X lodestar/internal/buildinfo.Version=${VERSION} -X lodestar/internal/buildinfo.Commit=${COMMIT}" \
+      -o /out/lodestar ./cmd/lodestar
+
+# ---------- runtime ----------
+FROM alpine:3.20
+# bash + curl 是为了让 stop/start 脚本和健康检查在容器里有基本工具可用；
+# 不需要的话可以换成纯 alpine 并把 restart_command 写成 sh 兼容形式。
+RUN apk add --no-cache ca-certificates tzdata bash curl \
+ && mkdir -p /srv /backups /work
+WORKDIR /app
+COPY --from=builder /out/lodestar /usr/local/bin/lodestar
+
+# 应用根目录、备份目录、下载临时目录
+VOLUME ["/srv", "/backups", "/work"]
+
+ENV LODESTAR_AGENT_DEPLOY_ROOT=/srv \
+    LODESTAR_AGENT_BACKUP_DIR=/backups \
+    LODESTAR_AGENT_WORK_DIR=/work \
+    LODESTAR_AGENT_NAME=container \
+    LODESTAR_AGENT_POLL_INTERVAL_SECONDS=5
+
+# 不用非 root：Agent 的职责就是替换挂载目录里的文件并执行重启脚本，
+# 降权后经常连自己的挂载卷都写不进去。要隔离请在 compose 里用 user: 指定。
+HEALTHCHECK --interval=60s --timeout=5s --start-period=10s --retries=3 \
+    CMD pidof lodestar >/dev/null 2>&1 || exit 1
+
+ENTRYPOINT ["/usr/local/bin/lodestar"]
+CMD ["agent"]

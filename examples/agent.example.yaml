@@ -1,0 +1,51 @@
+# Lodestar Agent 配置示例（生产机侧）
+#
+# 放在 lodestar 可执行文件旁边：/opt/lodestar/data/config/system.yaml
+# 然后 `./lodestar agent`（或交给 systemd 托管）。
+#
+# 只需要 agent 段落，服务端字段在这台机器上没有意义。
+
+agent:
+  # 控制面地址。必须能从这台机器访问到。
+  server_url: "https://lodestar.example.com"
+
+  # 主机令牌。在 WebUI「目标主机」里创建主机后复制，轮换令牌后记得同步更新。
+  target_token: "REPLACE_ME"
+
+  # 主机名，只用于日志和心跳展示。
+  name: "prod-01"
+
+  # 默认安装根目录。一个 Agent 可以服务多个项目：
+  # 每个项目默认装到 <deploy_root>/<app_id>，具体路径在 WebUI 部署时指定。
+  # 这里只是默认值——部署时填任意绝对路径（/opt/xxx、D://apps//xxx）都生效，
+  # 只有文件系统根目录（/、C://）会被拒绝。
+  deploy_root: "/srv"
+
+  # 兼容单应用老配置：任务没带路径时用它，同时兼作默认部署根。新部署不用填。
+  # deploy_dir: "/srv/demo-app"
+
+  # 默认备份目录。每次换版前把部署目录完整复制成 <name>-<version>-<时间戳>。
+  # 留空则用 <部署目录>.backups。
+  backup_dir: "/srv/lodestar-backups"
+
+  # 下载和解压的临时目录，需要足够空间放下一整个包。
+  work_dir: "/var/lib/lodestar"
+
+  # 停服 / 启服 / 重启命令、健康检查、白名单、备份保留数都不在这里：
+  # 它们属于「主机 × 应用」，在 WebUI 的「部署配置」页面按项目设置。
+  # 这样一台 Agent 服务多个项目时，每个项目可以有自己的重启方式和白名单。
+
+  # 允许执行控制面下发的命令。设 false 则任何命令都不执行（只替换文件）。
+  allow_server_commands: true
+
+
+  # 长轮询间隔（秒）。服务端无任务时最多挂 20s 再返回。
+  poll_interval_seconds: 5
+
+  # 是否接受服务端下发的命令（stop/start/restart/health_check/preserve）。
+  # true  —— 控制面可以按项目覆盖主机命令，灵活但控制面被攻破就能在主机上执行任意命令。
+  # false —— 只用本文件里的命令，推荐给多团队共用或半可信环境。
+  allow_server_commands: false
+
+  # 跳过 TLS 校验。只用于自签证书的调试环境。
+  insecure_skip_verify: false

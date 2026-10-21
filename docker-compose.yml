@@ -1,14 +1,79 @@
 services:
-  update-server:
-    build: .
-    container_name: gx-update-server
+  # ---------- 本体：控制面 ----------
+  lodestar:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VERSION: ${VERSION:-dev}
+    image: lodestar:${VERSION:-latest}
+    container_name: lodestar
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "${LODESTAR_PORT:-8080}:8080"
     environment:
-      UPDATE_SYSTEM_CONFIG: "/app/data/config/system.yaml"
-      UPDATE_APPS_CONFIG: "/app/data/config/apps.yaml"
-      UPDATE_PUBLIC_BASE_URL: "https://update.example.com"
+      # 对外地址：反代后请改成 https://lodestar.example.com
+      LODESTAR_PUBLIC_BASE_URL: ${LODESTAR_PUBLIC_BASE_URL:-}
+      LODESTAR_ADMIN_USERNAME: ${LODESTAR_ADMIN_USERNAME:-admin}
+      # 留空则首次启动随机生成，并写入 data/initial-admin.txt
+      LODESTAR_ADMIN_PASSWORD: ${LODESTAR_ADMIN_PASSWORD:-}
+      LODESTAR_MAX_UPLOAD_MB: ${LODESTAR_MAX_UPLOAD_MB:-2048}
+      LODESTAR_SESSION_TTL_HOURS: ${LODESTAR_SESSION_TTL_HOURS:-168}
+      TZ: ${TZ:-Asia/Shanghai}
     volumes:
       - ./data:/app/data
       - ./storage:/app/storage
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ---------- Agent：生产机侧 ----------
+  #
+  # 和本体是两个镜像，默认不启动（profile: agent）。
+  # 单独拉起：docker compose --profile agent up -d lodestar-agent
+  #
+  # 注意 deploy 卷要和"被部署的应用"共享——Agent 的工作就是替换这个目录里的文件。
+  lodestar-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile.agent
+      args:
+        VERSION: ${VERSION:-dev}
+    image: lodestar-agent:${VERSION:-latest}
+    container_name: lodestar-agent
+    restart: unless-stopped
+    profiles: ["agent"]
+    depends_on:
+      lodestar:
+        condition: service_healthy
+    environment:
+      # 控制面地址。容器内访问同网络的 lodestar 服务，默认就是 http://lodestar:8080
+      LODESTAR_AGENT_SERVER_URL: ${LODESTAR_AGENT_SERVER_URL:-http://lodestar:8080}
+      # 在 WebUI「目标主机 → 接入配置」里复制。
+      # 这里不用 ${VAR:?} 强制校验：compose 在解析阶段就会插值所有变量，
+      # 强制校验会让"只启动本体"也一起失败。Agent 拿到空 token 会在日志里明确报错。
+      LODESTAR_AGENT_TARGET_TOKEN: ${LODESTAR_AGENT_TARGET_TOKEN:-}
+      LODESTAR_AGENT_NAME: ${LODESTAR_AGENT_NAME:-container}
+      LODESTAR_AGENT_DEPLOY_ROOT: /srv
+      LODESTAR_AGENT_BACKUP_DIR: /backups
+      LODESTAR_AGENT_WORK_DIR: /work
+      # 停启命令、白名单在 WebUI「部署配置」里按项目设置，不走环境变量。
+      TZ: ${TZ:-Asia/Shanghai}
+    volumes:
+      # 应用根目录：每个项目会装到 /srv/<app_id>（路径在 WebUI 部署时指定）
+      - ${APP_ROOT:-./apps}:/srv
+      - ./backups:/backups
+      - ./agent-work:/work
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

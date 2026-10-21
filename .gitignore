@@ -1,23 +1,33 @@
-# Database
-data/update.db
-data/*.db
-data/*.db-*
+# ---------- build output ----------
+/lodestar
+/lodestar.exe
+/lodestar-*
+internal/web/dist/*
+!internal/web/dist/.gitkeep
 
-# Configs with secrets
-data/config/system.yaml
-data/config/apps.yaml
+# ---------- runtime data ----------
+/data/
+/storage/
 
-# Package storage
-storage/
+# ---------- frontend ----------
+webui/node_modules/
+webui/.vite/
+webui/dist/
+webui/*.tsbuildinfo
+npm-debug.log*
+yarn-error.log*
 
-# IDE
+# webui/.env.local holds the PrimeVue community license key and must stay tracked
+
+# ---------- local scratch ----------
+/.workbuddy-ai/
+/.tmp-test/
+/shots/
+*.log
+
+# ---------- editor / OS ----------
 .idea/
-
-# OS
+.vscode/
+*.swp
 .DS_Store
 Thumbs.db
-
-# Binary
-update-server
-update-server.exe
-*.exe

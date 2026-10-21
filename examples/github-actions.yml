@@ -1,0 +1,92 @@
+# 构建完成后主动推包到 Lodestar，部署成功才算发布成功。
+#
+# 需要的仓库 Secrets：
+#   LODESTAR_URL            https://lodestar.example.com
+#   LODESTAR_DEPLOY_TOKEN   WebUI 项目详情里的 deploy_token
+#
+# 关键点：
+#   - wait_seconds=180 让请求等到部署结束，CI 才能判断红绿
+#   - status 只有 success / partial 算成功，其余（failed / busy / no_targets）让流水线失败
+
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号（如 1.4.2），留空则用 tag'
+        required: false
+
+env:
+  APP_ID: demo-app
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Resolve version
+        id: meta
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+            go build -trimpath -ldflags "-s -w -X main.version=${{ steps.meta.outputs.version }}" \
+            -o dist/demo-app ./cmd/demo-app
+          tar czf dist/demo-app-linux-amd64.tar.gz -C dist demo-app
+          ls -lh dist
+
+      - name: Deploy
+        env:
+          LODESTAR_URL: ${{ secrets.LODESTAR_URL }}
+          LODESTAR_TOKEN: ${{ secrets.LODESTAR_DEPLOY_TOKEN }}
+        run: |
+          set -euo pipefail
+          curl --fail-with-body -sS -X POST "$LODESTAR_URL/api/v1/deploy" \
+            -H "X-Deploy-Token: $LODESTAR_TOKEN" \
+            -F "version=${{ steps.meta.outputs.version }}" \
+            -F "platform=linux" \
+            -F "arch=amd64" \
+            -F "channel=stable" \
+            -F "title=demo-app ${{ steps.meta.outputs.version }}" \
+            -F "changelog=$(git log -1 --pretty=%s)" \
+            -F "wait_seconds=180" \
+            -F "deploy_dir=/srv/demo-app" \
+            -F "package=@dist/demo-app-linux-amd64.tar.gz" \
+            -o deploy.json
+
+          cat deploy.json
+          STATUS=$(jq -r .status deploy.json)
+          case "$STATUS" in
+            success|partial)
+              echo "deploy ok: $STATUS"
+              ;;
+            *)
+              echo "::error::deployment did not succeed (status=$STATUS)"
+              exit 1
+              ;;
+          esac
+
+      - name: Upload deploy report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-report
+          path: deploy.json
+          if-no-files-found: ignore

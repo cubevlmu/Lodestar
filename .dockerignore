@@ -1,6 +1,33 @@
+# Build inputs that never belong in the image
+.git
+.gitignore
+.dockerignore
+Dockerfile
+Dockerfile.agent
+docker-compose.yml
+Makefile
+README.md
+LICENSE
+examples/
+scripts/
+.github/
+
+# Frontend dependencies and build output (rebuilt inside the image)
+webui/node_modules
+webui/.vite
+internal/web/dist
+
+# Local binaries and runtime data
+*.exe
+lodestar
+lodestar-*
 data/
 storage/
-.git/
-.idea/
-*.md
-*.exe
+shots/
+.tmp-test/
+
+# Editor / OS noise
+.idea
+.vscode
+.DS_Store
+Thumbs.db

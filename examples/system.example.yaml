@@ -1,8 +1,61 @@
+# Lodestar 控制面配置示例
+#
+# 复制到 data/config/system.yaml，或用 -config 指定路径。
+# 所有键都能用 LODESTAR_* 环境变量覆盖，环境变量优先级更高。
+# 首次运行 `lodestar serve` 会自动生成一份（含随机 download_token_secret），
+# 这份文件主要用于你想手工调整默认值时参考。
+
+# 监听地址。反代后建议绑 127.0.0.1:8080，只让反代访问。
 addr: ":8080"
-db_path: "data/update.db"
+
+# SQLite 数据库。WAL 模式，单文件，备份直接拷走即可。
+db_path: "data/lodestar.db"
+
+# 上传的包体存放目录。这个目录会随发布不断增长，注意磁盘和清理策略。
 storage_dir: "storage"
-public_base_url: "http://127.0.0.1:8080"
-apps_config_path: "data/config/apps.yaml"
-download_token_secret: "replace-with-long-random-download-secret"
+
+# 数据根目录（初始管理员密码、Agent 工作目录等）。
+data_dir: "data"
+
+# 对外地址。生成的下载链接、Agent 配置片段都以它为前缀。
+# 留空则按请求的 Host 推断——反代/容器场景下经常推断错，生产环境务必显式设置。
+public_base_url: "https://lodestar.example.com"
+
+# 下载链接签名密钥。首次启动自动生成随机值，请不要提交到仓库。
+download_token_secret: ""
+
+# 客户端签名允许的时钟偏差（秒）。太小会导致时钟不准的客户端 401。
 client_clock_skew_seconds: 300
+
+# 下载链接有效期（秒）。
 download_token_ttl_seconds: 900
+
+# 登录会话有效期（小时）。默认 7 天。
+session_ttl_hours: 168
+
+# 单包上限（MB）。要和反代的 client_max_body_size 对齐。
+max_upload_mb: 2048
+
+# 初始管理员。只在账号不存在时生效；password 留空则随机生成并打印到终端。
+admin_username: "admin"
+admin_password: ""
+
+# 打印每条 SQL（含耗时）。默认 false，只记录真正的数据库错误。
+# 排查"某条查询为什么慢/为什么没命中"时临时打开，平时保持关闭以免日志被刷满。
+sql_debug: false
+
+# Agent 段落写在这里只是方便单机自托管时"服务端 + Agent 同进程目录"复用一份配置。
+# 生产机上单独放一份 agent 配置更清晰，见 agent.example.yaml。
+agent:
+  server_url: "http://127.0.0.1:8080"
+  target_token: ""
+  name: "local"
+  # 这台机器允许安装应用的根；每个项目装到 <root>/<app_id>，
+  # 具体路径在 WebUI 部署时指定。
+  deploy_root: "/srv"
+  backup_dir: "/srv/lodestar-backups"
+  work_dir: "data/agent"
+  # 命令/白名单/备份保留数在 WebUI「部署配置」里按项目设置，不在这里。
+  poll_interval_seconds: 5
+  allow_server_commands: true
+  insecure_skip_verify: false
