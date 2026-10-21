@@ -97,3 +97,43 @@ jobs:
           tags: lodestar-${{ matrix.name }}:ci
           cache-from: type=gha,scope=ci-${{ matrix.name }}
           cache-to: type=gha,mode=max,scope=ci-${{ matrix.name }}
+
+  clients:
+    name: Client libraries
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Dart client
+        working-directory: clients/flutter/lodestar_update_client
+        run: |
+          flutter pub get
+          flutter analyze
+          dart test
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: C# client
+        run: dotnet test clients/csharp/Lodestar.Update.Tests
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Java client
+        working-directory: clients/java
+        run: |
+          mkdir -p out
+          javac --release 17 -d out $(find src -name '*.java')
+          java -cp out com.cubevlmu.lodestar.update.SelfTest

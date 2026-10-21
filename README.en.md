@@ -156,7 +156,50 @@ The dashboard provides job logs, retries, and rollback. Rollback restores an ava
 
 App clients call `POST /api/v1/check` with `X-App-Id`, `X-Timestamp`, `X-Nonce`, and `X-Signature`. The request body is included in its HMAC-SHA256 signature. Responses can provide a matching release, update policy, expiring signed download URL, and Ed25519-signed update manifest. Policies can enforce minimum supported versions, maintenance windows, or version blocks.
 
-See the working [Go client](examples/client/go/main.go) and [Dart / Flutter client](examples/client/dart/check_update.dart). Clients should verify signatures rather than trusting a download URL on its own.
+### Official clients
+
+Four implementations live under `clients/`, all speaking the same protocol:
+
+| Language | Package | Registry |
+| --- | --- | --- |
+| Dart / Flutter | `lodestar_update_client` | pub.dev |
+| Java | `com.cubevlmu:lodestar-update` | GitHub Packages (Maven) |
+| C# | `Lodestar.Update` | NuGet |
+| Go | — (source) | [examples/client/go](examples/client/go/main.go) |
+
+Each one signs the request, verifies the Ed25519 manifest and checks the
+package SHA-256 after download; the signing rules are documented in
+[clients/README.md](clients/README.md). Clients should verify signatures rather
+than trusting a download URL on its own.
+
+```dart
+final client = LodestarUpdateClient(config: LodestarUpdateConfig(
+  baseUrl: 'https://lodestar.example.com',
+  appId: 'demo.app',
+  clientSecret: '<client_secret>',
+  ed25519PublicKey: '<public key>',
+));
+final result = await client.check(version: '1.4.1', versionCode: 1004001);
+```
+
+```java
+var response = client.check("1.4.1", 1_004_001, null);
+if (response.hasUpdate()) {
+    var pkg = client.downloadAndVerify(response.update(), Path.of("updates"));
+}
+```
+
+```csharp
+var response = await client.CheckAsync("1.4.1", 1_004_001);
+if (response.HasUpdate)
+{
+    var package = await client.DownloadAndVerifyAsync(response.Update, "updates");
+}
+```
+
+Pushing a `v*` tag runs `.github/workflows/publish-clients.yml`, which tests and
+publishes all three packages; channels without credentials are skipped with a
+warning.
 
 ## Configuration and API
 

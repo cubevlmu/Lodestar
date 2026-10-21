@@ -155,7 +155,46 @@ WebUI 可查看任务执行日志、重试及回滚。回滚依赖本机保留�
 
 客户端通过 `POST /api/v1/check` 查询版本，签名头包括 `X-App-Id`、`X-Timestamp`、`X-Nonce` 和 `X-Signature`。请求体参与 HMAC-SHA256 签名；返回信息包含可用版本、更新类型、签名下载链接和 Ed25519 清单签名。更新策略可设置最低支持版本、维护状态和封禁版本。
 
-已有可运行的 [Go 客户端示例](examples/client/go/main.go) 和 [Dart / Flutter 客户端示例](examples/client/dart/check_update.dart)。客户端必须校验签名，不能仅凭返回的下载 URL 信任包体。
+### 官方客户端
+
+`clients/` 下有四种语言的实现，协议一致，可以混用：
+
+| 语言 | 包名 | 发布渠道 |
+| --- | --- | --- |
+| Dart / Flutter | `lodestar_update_client` | pub.dev |
+| Java | `com.cubevlmu:lodestar-update` | GitHub Packages（Maven） |
+| C# | `Lodestar.Update` | NuGet |
+| Go | —（源码） | [examples/client/go](examples/client/go/main.go) |
+
+它们都完成了签名请求、Ed25519 清单校验和下载后的 SHA-256 核对；签名规则见 [clients/README.md](clients/README.md)。
+客户端必须校验签名，不能仅凭返回的下载 URL 信任包体。
+
+```dart
+final client = LodestarUpdateClient(config: LodestarUpdateConfig(
+  baseUrl: 'https://lodestar.example.com',
+  appId: 'demo.app',
+  clientSecret: '<client_secret>',
+  ed25519PublicKey: '<public key>',
+));
+final result = await client.check(version: '1.4.1', versionCode: 1004001);
+```
+
+```java
+var response = client.check("1.4.1", 1_004_001, null);
+if (response.hasUpdate()) {
+    var pkg = client.downloadAndVerify(response.update(), Path.of("updates"));
+}
+```
+
+```csharp
+var response = await client.CheckAsync("1.4.1", 1_004_001);
+if (response.HasUpdate)
+{
+    var package = await client.DownloadAndVerifyAsync(response.Update, "updates");
+}
+```
+
+推 `v*` 标签时 `.github/workflows/publish-clients.yml` 会跑测试并发布三个包；缺少凭据时跳过对应渠道并给出警告。
 
 ## 配置与接口
 

@@ -19,6 +19,15 @@ yarn-error.log*
 
 # webui/.env.local holds the PrimeVue community license key and must stay tracked
 
+# ---------- client build output ----------
+clients/java/out/
+clients/java/target/
+clients/csharp/**/bin/
+clients/csharp/**/obj/
+clients/flutter/**/.dart_tool/
+clients/flutter/**/build/
+clients/flutter/**/pubspec.lock
+
 # ---------- local scratch ----------
 /.workbuddy-ai/
 /.tmp-test/
