@@ -4,12 +4,21 @@ Official update clients for Lodestar, in four flavours. They all speak the same
 protocol, so a mixed fleet (Flutter mobile app, Java desktop tool, C# service,
 Go binary) can be served by one Lodestar instance.
 
-| Language | Package | Registry |
+| Language | Package | Distribution |
 | --- | --- | --- |
-| Dart / Flutter | `lodestar_update_client` | pub.dev |
-| Java | `com.cubevlmu:lodestar-update` | GitHub Packages (Maven) |
-| C# | `Lodestar.Update` | NuGet |
-| Go | `examples/client/go` (in this repo) | — |
+| Dart / Flutter | `lodestar_update_client` | Release asset `.tar.gz` |
+| Java | `lodestar-update` | Release asset `.jar` (+ sources/javadoc) |
+| C# | `Lodestar.Update` | Release asset `.nupkg` |
+| Go | `examples/client/go` (in this repo) | source |
+
+Every `v*` tag publishes these files as GitHub Release assets, built by the
+`Release` workflow — there is no registry to sign up for.
+
+| Asset | Install |
+| --- | --- |
+| `lodestar_update_client-<v>.tar.gz` | extract into `packages/`, then `lodestar_update_client: { path: packages/lodestar_update_client }` |
+| `Lodestar.Update.<v>.nupkg` | `dotnet nuget add source ./nuget --name lodestar`, then `dotnet add package Lodestar.Update` |
+| `lodestar-update-<v>.jar` | `mvn install:install-file -Dfile=... -DgroupId=com.cubevlmu -DartifactId=lodestar-update -Dversion=<v> -Dpackaging=jar`, or add it as a plain jar |
 
 ## The protocol
 

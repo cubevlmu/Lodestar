@@ -13,9 +13,20 @@ handoff.
 
 ## Install
 
+The package ships as a release asset, not on pub.dev. Download
+`lodestar_update_client-<version>.tar.gz` from the
+[releases page](https://github.com/cubevlmu/lodestar/releases), extract it into
+your project, and depend on the path:
+
+```text
+your_app/
+  packages/lodestar_update_client/
+```
+
 ```yaml
 dependencies:
-  lodestar_update_client: ^0.2.0
+  lodestar_update_client:
+    path: packages/lodestar_update_client
 ```
 
 Android needs `REQUEST_INSTALL_PACKAGES` (merged automatically) and, on Android

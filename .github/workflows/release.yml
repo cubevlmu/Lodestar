@@ -90,9 +90,88 @@ jobs:
           path: lodestar-*
           retention-days: 1
 
+
+  clients:
+    name: Build client packages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get version
+        id: version
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${GITHUB_REF#refs/tags/}"
+          fi
+          echo "TAG=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "VERSION=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      # ------------------------------------------------------------- Flutter
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Build Flutter package
+        working-directory: clients/flutter/lodestar_update_client
+        run: |
+          sed -i "s/^version: .*/version: ${{ steps.version.outputs.VERSION }}/" pubspec.yaml
+          flutter pub get
+          flutter analyze
+          dart test
+          cd ..
+          tar --exclude=.dart_tool --exclude=build \
+            -czf "$GITHUB_WORKSPACE/lodestar_update_client-${{ steps.version.outputs.VERSION }}.tar.gz" \
+            lodestar_update_client
+
+      # ---------------------------------------------------------------- NuGet
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Build NuGet package
+        run: |
+          dotnet test clients/csharp/Lodestar.Update.Tests
+          dotnet pack clients/csharp/Lodestar.Update -c Release \
+            -p:Version=${{ steps.version.outputs.VERSION }} -o dist
+          ls -la dist
+
+      # ----------------------------------------------------------------- Java
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Build Java jar
+        working-directory: clients/java
+        run: |
+          mkdir -p out
+          javac --release 17 -d out $(find src -name '*.java')
+          java -cp out com.cubevlmu.lodestar.update.SelfTest
+          mvn -B -q versions:set -DnewVersion=${{ steps.version.outputs.VERSION }} -DgenerateBackupPoms=false
+          mvn -B package -DskipTests
+          cp target/lodestar-update-*.jar "$GITHUB_WORKSPACE/"
+          ls -la "$GITHUB_WORKSPACE"/*.jar
+
+      - name: Upload client packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: lodestar-clients
+          path: |
+            lodestar_update_client-*.tar.gz
+            dist/*.nupkg
+            lodestar-update-*.jar
+          retention-days: 1
+
   release:
     name: Create Release
-    needs: build
+    needs: [build, clients]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -143,6 +222,11 @@ jobs:
             echo "\`\`\`bash"
             echo "docker pull ghcr.io/${{ github.repository }}:${VERSION}"
             echo "\`\`\`"
+            echo ""
+            echo "### Client packages"
+            echo "- \`lodestar_update_client-${VERSION#v}.tar.gz\` — Flutter (extract into `packages/`)"
+            echo "- \`Lodestar.Update.${VERSION#v}.nupkg\` — .NET (local NuGet feed)"
+            echo "- \`lodestar-update-${VERSION#v}.jar\` — Java (plus sources/javadoc jars)"
           } > changelog.md
           cat changelog.md
 

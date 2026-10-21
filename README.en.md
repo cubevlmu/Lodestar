@@ -160,11 +160,11 @@ App clients call `POST /api/v1/check` with `X-App-Id`, `X-Timestamp`, `X-Nonce`,
 
 Four implementations live under `clients/`, all speaking the same protocol:
 
-| Language | Package | Registry |
+| Language | Package | Where to get it |
 | --- | --- | --- |
-| Dart / Flutter | `lodestar_update_client` | pub.dev |
-| Java | `com.cubevlmu:lodestar-update` | GitHub Packages (Maven) |
-| C# | `Lodestar.Update` | NuGet |
+| Dart / Flutter | `lodestar_update_client` | Release asset `lodestar_update_client-<version>.tar.gz` |
+| Java | `lodestar-update` | Release asset `lodestar-update-<version>.jar` (plus sources/javadoc) |
+| C# | `Lodestar.Update` | Release asset `Lodestar.Update.<version>.nupkg` |
 | Go | — (source) | [examples/client/go](examples/client/go/main.go) |
 
 Each one signs the request, verifies the Ed25519 manifest and checks the
@@ -197,9 +197,8 @@ if (response.HasUpdate)
 }
 ```
 
-Pushing a `v*` tag runs `.github/workflows/publish-clients.yml`, which tests and
-publishes all three packages; channels without credentials are skipped with a
-warning.
+Pushing a `v*` tag also builds the three client packages and attaches them to
+the GitHub Release, so no third-party registry credentials are needed.
 
 ## Configuration and API
 

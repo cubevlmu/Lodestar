@@ -159,11 +159,11 @@ WebUI 可查看任务执行日志、重试及回滚。回滚依赖本机保留�
 
 `clients/` 下有四种语言的实现，协议一致，可以混用：
 
-| 语言 | 包名 | 发布渠道 |
+| 语言 | 包名 | 获取方式 |
 | --- | --- | --- |
-| Dart / Flutter | `lodestar_update_client` | pub.dev |
-| Java | `com.cubevlmu:lodestar-update` | GitHub Packages（Maven） |
-| C# | `Lodestar.Update` | NuGet |
+| Dart / Flutter | `lodestar_update_client` | Release 附件 `lodestar_update_client-<版本>.tar.gz` |
+| Java | `lodestar-update` | Release 附件 `lodestar-update-<版本>.jar`（含 sources/javadoc） |
+| C# | `Lodestar.Update` | Release 附件 `Lodestar.Update.<版本>.nupkg` |
 | Go | —（源码） | [examples/client/go](examples/client/go/main.go) |
 
 它们都完成了签名请求、Ed25519 清单校验和下载后的 SHA-256 核对；签名规则见 [clients/README.md](clients/README.md)。
@@ -194,7 +194,7 @@ if (response.HasUpdate)
 }
 ```
 
-推 `v*` 标签时 `.github/workflows/publish-clients.yml` 会跑测试并发布三个包；缺少凭据时跳过对应渠道并给出警告。
+推 `v*` 标签时 `Release` workflow 会一并构建三个客户端包并挂到 Release 附件，无需配置任何第三方仓库凭据。
 
 ## 配置与接口
 

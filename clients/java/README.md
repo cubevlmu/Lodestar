@@ -6,6 +6,19 @@ dependencies: HMAC and Ed25519 come from the JDK, HTTP from
 
 ## Install
 
+Download `lodestar-update-<version>.jar` (plus the sources/javadoc jars) from
+the [releases page](https://github.com/cubevlmu/lodestar/releases) and install
+it into your local Maven repository:
+
+```bash
+mvn install:install-file \
+  -Dfile=lodestar-update-0.1.0.jar \
+  -DgroupId=com.cubevlmu -DartifactId=lodestar-update \
+  -Dversion=0.1.0 -Dpackaging=jar
+```
+
+Then:
+
 ```xml
 <dependency>
   <groupId>com.cubevlmu</groupId>
@@ -14,17 +27,11 @@ dependencies: HMAC and Ed25519 come from the JDK, HTTP from
 </dependency>
 ```
 
-Published to GitHub Packages:
+Gradle users can point at the jar directly:
 
-```xml
-<repository>
-  <id>github</id>
-  <url>https://maven.pkg.github.com/cubevlmu/lodestar</url>
-</repository>
+```kotlin
+implementation(files("libs/lodestar-update-0.1.0.jar"))
 ```
-
-GitHub Packages requires credentials even for public packages; use a personal
-access token with `read:packages` in `~/.m2/settings.xml`.
 
 ## Use
 

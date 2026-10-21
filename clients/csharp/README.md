@@ -5,7 +5,13 @@ verification uses BouncyCastle; everything else is in the framework.
 
 ## Install
 
+Download `Lodestar.Update.<version>.nupkg` from the
+[releases page](https://github.com/cubevlmu/lodestar/releases), drop it in a
+folder, and add that folder as a local feed:
+
 ```bash
+mkdir -p nuget && cp ~/Downloads/Lodestar.Update.0.1.0.nupkg nuget/
+dotnet nuget add source ./nuget --name lodestar
 dotnet add package Lodestar.Update
 ```
 
