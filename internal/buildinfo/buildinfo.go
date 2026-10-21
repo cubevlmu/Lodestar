@@ -2,7 +2,7 @@ package buildinfo
 
 // Version is the Lodestar release version. Set at build time with
 // -ldflags "-X lodestar/internal/buildinfo.Version=x.y.z".
-var Version = "0.1.0"
+var Version = "0.2.0"
 
 // Commit is the git revision injected at build time.
 var Commit = "dev"

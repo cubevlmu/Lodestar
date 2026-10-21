@@ -12,9 +12,9 @@ it into your local Maven repository:
 
 ```bash
 mvn install:install-file \
-  -Dfile=lodestar-update-0.1.0.jar \
+  -Dfile=lodestar-update-0.2.0.jar \
   -DgroupId=com.cubevlmu -DartifactId=lodestar-update \
-  -Dversion=0.1.0 -Dpackaging=jar
+  -Dversion=0.2.0 -Dpackaging=jar
 ```
 
 Then:
@@ -23,14 +23,14 @@ Then:
 <dependency>
   <groupId>com.cubevlmu</groupId>
   <artifactId>lodestar-update</artifactId>
-  <version>0.1.0</version>
+  <version>0.2.0</version>
 </dependency>
 ```
 
 Gradle users can point at the jar directly:
 
 ```kotlin
-implementation(files("libs/lodestar-update-0.1.0.jar"))
+implementation(files("libs/lodestar-update-0.2.0.jar"))
 ```
 
 ## Use

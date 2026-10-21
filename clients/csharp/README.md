@@ -10,7 +10,7 @@ Download `Lodestar.Update.<version>.nupkg` from the
 folder, and add that folder as a local feed:
 
 ```bash
-mkdir -p nuget && cp ~/Downloads/Lodestar.Update.0.1.0.nupkg nuget/
+mkdir -p nuget && cp ~/Downloads/Lodestar.Update.0.2.0.nupkg nuget/
 dotnet nuget add source ./nuget --name lodestar
 dotnet add package Lodestar.Update
 ```
