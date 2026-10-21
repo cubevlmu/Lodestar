@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" role="img" aria-label="Lodestar">
+  <defs>
+    <linearGradient id="lodestar-g" x1="4" y1="2" x2="44" y2="46" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#818cf8"/>
+      <stop offset="0.5" stop-color="#4f46e5"/>
+      <stop offset="1" stop-color="#0ea5e9"/>
+    </linearGradient>
+  </defs>
+  <rect width="48" height="48" rx="12" fill="url(#lodestar-g)"/>
+  <circle cx="24" cy="24" r="15.6" fill="none" stroke="#ffffff" stroke-opacity="0.22" stroke-width="1.2"/>
+  <path d="M24 6.4C25.5 17.5 30.5 22.5 41.6 24 30.5 25.5 25.5 30.5 24 41.6 22.5 30.5 17.5 25.5 6.4 24 17.5 22.5 22.5 17.5 24 6.4Z" fill="#ffffff"/>
+  <circle cx="24" cy="24" r="1.5" fill="url(#lodestar-g)" fill-opacity="0.9"/>
+</svg>

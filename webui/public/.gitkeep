@@ -1,0 +1,1 @@
+# Keeps the embed directory present after `vite build` clears it.
