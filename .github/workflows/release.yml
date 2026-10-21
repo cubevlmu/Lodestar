@@ -139,7 +139,11 @@ jobs:
           dotnet test clients/csharp/Lodestar.Update.Tests
           dotnet pack clients/csharp/Lodestar.Update -c Release \
             -p:Version=${{ steps.version.outputs.VERSION }} -o dist
-          ls -la dist
+          # Flatten it: upload-artifact keeps the path relative to the common
+          # ancestor, so a nupkg left in dist/ lands one directory deeper than
+          # the jars and the release glob misses it.
+          cp dist/*.nupkg "$GITHUB_WORKSPACE/"
+          ls -la "$GITHUB_WORKSPACE"/*.nupkg
 
       # ----------------------------------------------------------------- Java
       - name: Set up JDK
@@ -165,8 +169,9 @@ jobs:
           name: lodestar-clients
           path: |
             lodestar_update_client-*.tar.gz
-            dist/*.nupkg
+            *.nupkg
             lodestar-update-*.jar
+          if-no-files-found: error
           retention-days: 1
 
   release:
@@ -236,7 +241,9 @@ jobs:
           tag_name: ${{ steps.version.outputs.VERSION }}
           name: ${{ steps.version.outputs.VERSION }}
           body_path: changelog.md
-          files: artifacts/*/*
+          # ** so nested paths (an artifact that kept its directory layout) are
+          # picked up too, not just the top level.
+          files: artifacts/**/*
           draft: false
           prerelease: ${{ contains(steps.version.outputs.VERSION, '-') }}
         env:

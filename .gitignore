@@ -20,6 +20,7 @@ yarn-error.log*
 # webui/.env.local holds the PrimeVue community license key and must stay tracked
 
 # ---------- client build output ----------
+/dist/
 clients/java/out/
 clients/java/target/
 clients/csharp/**/bin/
