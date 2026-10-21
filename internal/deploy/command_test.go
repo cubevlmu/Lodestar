@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -56,15 +58,20 @@ func TestRunCommandEmptyIsNoop(t *testing.T) {
 	}
 }
 
+// The command must run inside dir. Writing a file and looking for it there is
+// portable: parsing shell output is not (`cd` prints the path under cmd.exe but
+// prints nothing under /bin/sh).
 func TestRunCommandRespectsWorkingDir(t *testing.T) {
 	dir := t.TempDir()
-	rec := &logRecorder{}
-	// `cd` prints the working directory on both cmd and sh.
-	if err := RunCommand(context.Background(), "cd", dir, rec.log); err != nil {
+	if err := RunCommand(context.Background(), "echo marker > marker.txt", dir, nil); err != nil {
 		t.Fatalf("run: %v", err)
 	}
-	if !strings.Contains(rec.joined(), dir) && !strings.Contains(strings.ToLower(rec.joined()), strings.ToLower(dir)) {
-		t.Fatalf("expected working dir %q in output, got:\n%s", dir, rec.joined())
+	body, err := os.ReadFile(filepath.Join(dir, "marker.txt"))
+	if err != nil {
+		t.Fatalf("expected marker.txt inside %s: %v", dir, err)
+	}
+	if !strings.Contains(string(body), "marker") {
+		t.Fatalf("unexpected marker content: %q", body)
 	}
 }
 
