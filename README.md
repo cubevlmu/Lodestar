@@ -7,9 +7,9 @@
 [![Vue][vue-shield]][vue-url]
 [![PrimeVue][primevue-shield]][primevue-url]
 
-[![CI](https://github.com/cubevlmu/gx_updater/actions/workflows/ci.yml/badge.svg)](https://github.com/cubevlmu/gx_updater/actions/workflows/ci.yml)
-[![Release](https://github.com/cubevlmu/gx_updater/actions/workflows/release.yml/badge.svg)](https://github.com/cubevlmu/gx_updater/actions/workflows/release.yml)
-[![Docker](https://github.com/cubevlmu/gx_updater/actions/workflows/docker.yml/badge.svg)](https://github.com/cubevlmu/gx_updater/actions/workflows/docker.yml)
+[![CI](https://github.com/cubevlmu/lodestar/actions/workflows/ci.yml/badge.svg)](https://github.com/cubevlmu/lodestar/actions/workflows/ci.yml)
+[![Release](https://github.com/cubevlmu/lodestar/actions/workflows/release.yml/badge.svg)](https://github.com/cubevlmu/lodestar/actions/workflows/release.yml)
+[![Docker](https://github.com/cubevlmu/lodestar/actions/workflows/docker.yml/badge.svg)](https://github.com/cubevlmu/lodestar/actions/workflows/docker.yml)
 
 <br />
 <div align="center">
@@ -667,19 +667,19 @@ docker compose --profile agent up -d
 ### 直接用镜像
 
 ```bash
-docker pull ghcr.io/cubevlmu/gx_updater:v0.1.0
-docker pull ghcr.io/cubevlmu/gx_updater-agent:v0.1.0
+docker pull ghcr.io/cubevlmu/lodestar:v0.1.0
+docker pull ghcr.io/cubevlmu/lodestar-agent:v0.1.0
 
 docker run -d --name lodestar -p 8080:8080 \
   -v lodestar-data:/app/data -v lodestar-storage:/app/storage \
-  ghcr.io/cubevlmu/gx_updater:v0.1.0
+  ghcr.io/cubevlmu/lodestar:v0.1.0
 
 docker run -d --name lodestar-agent \
   -e LODESTAR_AGENT_SERVER_URL=https://lodestar.example.com \
   -e LODESTAR_AGENT_TARGET_TOKEN=<token> \
   -e LODESTAR_AGENT_RESTART_COMMAND="supervisorctl restart demo" \
   -v /srv/apps:/srv -v lodestar-backups:/backups \
-  ghcr.io/cubevlmu/gx_updater-agent:v0.1.0
+  ghcr.io/cubevlmu/lodestar-agent:v0.1.0
 ```
 
 反代到 Nginx / Caddy 时注意：
@@ -753,12 +753,12 @@ git push origin v0.1.0
 
 | 镜像 | Dockerfile | 平台 |
 | --- | --- | --- |
-| `ghcr.io/cubevlmu/gx_updater` | `Dockerfile` | amd64 / arm64 |
-| `ghcr.io/cubevlmu/gx_updater-agent` | `Dockerfile.agent` | amd64 / arm64 |
+| `ghcr.io/cubevlmu/lodestar` | `Dockerfile` | amd64 / arm64 |
+| `ghcr.io/cubevlmu/lodestar-agent` | `Dockerfile.agent` | amd64 / arm64 |
 
 ```bash
-docker pull ghcr.io/cubevlmu/gx_updater:v0.1.0
-docker pull ghcr.io/cubevlmu/gx_updater-agent:v0.1.0
+docker pull ghcr.io/cubevlmu/lodestar:v0.1.0
+docker pull ghcr.io/cubevlmu/lodestar-agent:v0.1.0
 ```
 
 #### 持续集成
